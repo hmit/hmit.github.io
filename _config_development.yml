@@ -13,7 +13,7 @@ permalink: pretty
 title: Harshit
 tagline: 'Curious Introvert'
 description: 'A place to share my thoughts!'
-url: https://hmit.github.io
+url: http://127.0.0.1:4000
 
 author:
   name: 'Harshit Mittal'

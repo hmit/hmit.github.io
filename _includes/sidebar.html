@@ -29,7 +29,10 @@
       <a class="sidebar-nav-item" href="{{ site.github.repo }}">GitHub Source</a>
     </nav>
 
-    <p>Made with ❤️ using <span><a href="{{ site.origtheme.github }}">{{ site.origtheme.name }}</a></span>.</p>
-    <p>&copy; {{ site.time | date: '%Y' }}. All rights reserved. Rev {{ site.github.build_revision }}</p>
+    <p>Made with ❤️ using <span><a href="{{ site.origtheme.github }}">{{ site.origtheme.name }}</a>/<a href="https://jekyllrb.com">Jekyll</a></a></span>.</p>
+    <p>&copy; {{ site.time | date: '%Y' }}. All rights reserved.
+      <br/>
+      Rev: {{ site.github.build_revision | truncate: 4, "" }}
+    </p>
   </div>
 </div>
