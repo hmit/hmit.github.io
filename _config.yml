@@ -1,5 +1,4 @@
 # Dependencies
-markdown:         redcarpet
 highlighter:      rouge
 
 # Permalinks
@@ -10,7 +9,7 @@ title:            Harshit
 tagline:          'Curious Introvert'
 description:      'A place for me to share my thoughts!'
 url:              https://hmit.github.io
-baseurl:          /
+baseurl:          https://hmit.github.io/
 
 author:
   name:           'Harshit Mittal'
