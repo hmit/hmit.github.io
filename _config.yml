@@ -20,6 +20,6 @@ paginate: 5
 github:
   repo: https://github.com/hmit/hmit.github.io
 
-theme:
+origtheme:
   name: hyde
   github: https://github.com/poole/hyde
