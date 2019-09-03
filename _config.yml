@@ -18,7 +18,7 @@ baseurl: https://hmit.github.io/
 
 author:
   name: 'Harshit Mittal'
-  github: @hmit
+  github: '@hmit'
   url: https://github.com/hmit
 
 paginate: 5
