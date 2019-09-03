@@ -14,7 +14,7 @@ title: Harshit
 tagline: 'Curious Introvert'
 description: 'A place to share my thoughts!'
 url: https://hmit.github.io
-baseUrl: https://hmit.github.io/
+baseurl: https://hmit.github.io/
 
 author:
   name: 'Harshit Mittal'
