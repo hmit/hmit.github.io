@@ -1,3 +1,8 @@
+# Plugins
+plugins:
+  - jekyll-seo-tag
+  - jekyll-mentions
+
 # Dependencies
 highlighter: rouge
 
@@ -13,6 +18,7 @@ baseurl: https://hmit.github.io/
 
 author:
   name: 'Harshit Mittal'
+  github: @hmit
   url: https://github.com/hmit
 
 paginate: 5
