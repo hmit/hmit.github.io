@@ -1,24 +1,25 @@
 # Dependencies
-highlighter:      rouge
+highlighter: rouge
 
 # Permalinks
-permalink:        pretty
+permalink: pretty
 
 # Setup
-title:            Harshit
-tagline:          'Curious Introvert'
-description:      'A place for me to share my thoughts!'
-url:              https://hmit.github.io
-baseurl:          https://hmit.github.io/
+title: Harshit
+tagline: 'Curious Introvert'
+description: 'A place for me to share my thoughts!'
+url: https://hmit.github.io
+baseurl: https://hmit.github.io/
 
 author:
-  name:           'Harshit Mittal'
-  url:            https://github.com/hmit
+  name: 'Harshit Mittal'
+  url: https://github.com/hmit
 
-paginate:         5
-
-# Custom vars
-version:          2.1.0
+paginate: 5
 
 github:
-  repo:           https://github.com/hmit/hmit.github.io
+  repo: https://github.com/hmit/hmit.github.io
+
+theme:
+  name: hyde
+  github: https://github.com/poole/hyde
