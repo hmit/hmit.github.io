@@ -1,0 +1,7 @@
+main:
+  - title: "Blog"
+    url: /
+  - title: "About Me"
+    url: /about
+  - title: "Projects (SOP)"
+    url: /netflix-sop

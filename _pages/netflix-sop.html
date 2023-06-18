@@ -1,0 +1,286 @@
+---
+layout: single
+permalink: /netflix-sop/
+---
+
+<style>
+  .collapsible {
+    background-color: #f9f9f9;
+    color: #333;
+    cursor: pointer;
+    padding: 18px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 16px;
+    transition: 0.4s;
+  }
+
+  .content {
+    padding: 0 18px;
+    display: none;
+    overflow: hidden;
+    background-color: #ffffff;
+  }
+
+  .expand-icon {
+    float: right;
+    margin-top: 4px;
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    background-image: url('expand_icon.png'); /* Add the URL of your expand icon image */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  .expanded {
+    background-image: url('collapse_icon.png'); /* Add the URL of your collapse icon image */
+  }
+</style>
+
+<div class="container">
+  <h2>Add Year and Dollar Amount</h2>
+
+  <form id="yearForm">
+    <label for="year">Year:</label>
+    <input type="text" id="year" required>
+
+    <label for="amount">Dollar Amount:</label>
+    <input type="number" id="amount" required>
+
+    <button type="submit">Add</button>
+  </form>
+
+  <button id="clearStorageButton">Clear Storage</button>
+  <div id="yearAmounts"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.5.1/math.min.js"></script>
+<script>
+  var yearForm = document.getElementById('yearForm');
+  var yearSelect = document.getElementById('yearSelect');
+  var yearAmounts = document.getElementById('yearAmounts');
+  var clearStorageButton = document.getElementById('clearStorageButton');
+
+  const yearKeyPrefix = 'year-';
+  const currentYear = new Date().getFullYear();
+  const nextYear = currentYear + 1;
+  const today = new Date();
+  const millisInAYear = (365 * 24 * 3600 * 1000);
+
+  function isValidYear(year) {
+    return /^\d{4}$/.test(year) && year >= 1998 && year <= nextYear;
+  }
+
+  function yearKeyMaker(year) {
+    return yearKeyPrefix + year;
+  }
+
+  function formatNumber(doubleNum, digits=2) {
+    return (Math.round(doubleNum * 100.0)/100).toFixed(digits);
+  }
+
+  function normalDist(number) {
+    // Calculate the normal distribution using math.js
+    const mean = 0; // Mean of the distribution
+    const standardDeviation = 1; // Standard deviation of the distribution
+    
+    const result = math.erf((number - mean) / (Math.sqrt(2) * standardDeviation));
+    return 0.5 * (1 + result);
+  }
+
+  function getRiskFreeRate(date) {
+    return 5;
+  }
+
+  function getStockVolatility(date) {
+    return 0.48;
+  }
+
+  function getBlackScholesValue(grantDate) {
+    const expiryDate = new Date(grantDate.getFullYear() + 10, grantDate.getMonth(), grantDate.getDate());
+    const timeToExpiry = (expiryDate - new Date()) / millisInAYear;
+    const rfr = getRiskFreeRate(today);
+    const vol = getStockVolatility(today);
+    return 1;
+  }
+
+  function renderFromLocalStorage() {
+    var balance = 0;
+    yearAmounts.innerHTML = '';
+    // Sort the years in ascending order
+    const years = Object.keys(localStorage)
+      .filter(a => a.startsWith(yearKeyPrefix))
+      .map(a => a.replace(yearKeyPrefix, ''))
+      .sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Load data from cache
+    for (const idx in years) {
+      const year = years[idx];
+      const totalAmount = localStorage.getItem(yearKeyMaker(year));
+      if (isValidYear(year) && totalAmount) {
+        const prevAmount = localStorage.getItem(yearKeyMaker(year - 1)) || 0;
+        balance = createYearDiv(year, totalAmount, prevAmount, balance);
+      }
+    }
+  }
+
+  function createYearDiv(year, amount, prevAmount, balance) {
+    var divContainer = document.createElement('div');
+    divContainer.className = 'collapsible';
+  
+    var header = document.createElement('div');
+    header.textContent = 'Year: ' + year + ', Amount: $' + formatNumber(amount) + ', Carryover: $' + formatNumber(balance);
+    header.className = 'header';
+  
+    var expandIcon = document.createElement('div');
+    expandIcon.className = 'expand-icon';
+    header.appendChild(expandIcon);
+  
+    var contentDiv = document.createElement('div');
+    contentDiv.className = 'content';
+  
+    var monthEntries = document.createElement('ul');
+    monthEntries.className = 'month-entries';
+  
+    for (var monthIdx = 0; monthIdx < 12; monthIdx++) {
+      const monthEntry = document.createElement('li');
+      // january is special because it uses previous year's amount    
+      const totalAmount = (monthIdx > 0) ? amount : prevAmount
+      const processed = createRow(year, monthIdx, totalAmount, balance);
+      monthEntry.textContent = processed.textContent;
+      balance = processed.balance;
+      monthEntries.appendChild(monthEntry);
+    }
+  
+    contentDiv.appendChild(monthEntries);
+    divContainer.appendChild(header);
+    divContainer.appendChild(contentDiv);
+    yearAmounts.appendChild(divContainer);
+
+    header.addEventListener('click', function() {
+      this.classList.toggle('expanded');
+      var content = this.nextElementSibling;
+      if (content.style.display === 'block') {
+        content.style.display = 'none';
+      } else {
+        content.style.display = 'block';
+      }
+    });
+    return balance;
+  }
+
+  function createRow(year, monthIdx, totalAmount, balance) {
+    const date = new Date(year, monthIdx, 1);
+    const dateStr = date.toLocaleDateString('en-us', {
+        weekday: "short", day: "numeric", year:"numeric", month:"short"
+    });
+    // todo(hmit): sometime before the constant used to be 0.2
+    //   Figure out when!
+    const factor = 0.4;
+    // strikePrice is also the closingPrice for the day!
+    const strikePrice = 355.01;
+    const currentPrice = 400;
+    const allocation = balance + totalAmount/12.0;
+    const optionPrice = factor * strikePrice;
+    const qty = Math.floor(allocation/optionPrice);
+
+    const newBalance = allocation - qty * optionPrice;
+    const blackScholesValue = getBlackScholesValue(date);
+    const exerciseValue = Math.max((currentPrice - strikePrice), 0);
+    const numbers = [
+        strikePrice,
+        qty,
+        qty * currentPrice,
+        qty * optionPrice,
+        qty * blackScholesValue,
+        qty * exerciseValue,
+        qty * (exerciseValue - blackScholesValue),
+        (exerciseValue - blackScholesValue) / (blackScholesValue)
+    ].map(x => formatNumber(x));
+    const rowElems = [dateStr].concat(numbers);
+    return {
+        balance: newBalance, 
+        textContent: rowElems.join('----')
+    };
+  
+  }
+
+  yearForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    var yearInput = document.getElementById('year');
+    var amountInput = document.getElementById('amount');
+
+    var year = yearInput.value;
+    var amount = amountInput.value;
+
+    if (isValidYear(year) && amount) {
+      // Save data to cache
+      localStorage.setItem(yearKeyMaker(year), amount);
+
+      renderFromLocalStorage();
+
+      yearInput.value = '';
+      amountInput.value = '';
+    } else {
+      alert('Please enter a valid year between 1998 and ' + nextYear + ' and a dollar amount.');
+    }
+  });
+
+  clearStorageButton.addEventListener('click', function() {
+    // Clear storage
+    localStorage.clear();
+    yearAmounts.innerHTML = '';
+  });
+
+  function readTextFile(url) {
+    fetch(url)
+      .then(response => response.text())
+      .then(text => {
+        // Process the text content
+        console.log(text);
+      })
+      .catch(error => {
+        console.error('Error reading text file:', error);
+      });
+  }
+
+  function parseCSV(csvData) {
+    var rows = csvData.split("\n");
+    var data = [];
+    
+    for (var i = 0; i < rows.length; i++) {
+      var cells = rows[i].split(",");
+      data.push(cells);
+    }
+    
+    return data;
+  }
+
+  renderFromLocalStorage();
+  // Example usage: Read a text file from a URL
+  const fileURL = './nflx-close-price.csv';
+  readTextFile(fileURL);
+  async function fetchMarketData(symbol) {
+  try {
+    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`);
+    const data = await response.json();
+    
+    // Extract relevant data from the response
+    const { timestamp, close } = data.chart.result[0].indicators.quote[0];
+    
+    // Process the data as needed
+    // Example: Log the timestamp and closing prices
+    timestamp.forEach((ts, index) => {
+      const date = new Date(ts * 1000); // Convert timestamp to date
+      const closingPrice = close[index];
+      console.log(`Date: ${date}, Closing Price: ${closingPrice}`);
+    });
+  } catch (error) {
+    console.error('Error fetching market data:', error);
+  }
+}
+</script>
