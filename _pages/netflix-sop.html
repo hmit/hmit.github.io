@@ -1,5 +1,6 @@
 ---
 layout: single
+classes: wide
 permalink: /netflix-sop/
 ---
 
@@ -42,16 +43,16 @@ permalink: /netflix-sop/
 </style>
 
 <div class="container">
-  <h2>Add Year and Dollar Amount</h2>
+  <h2>Netflix SOP</h2>
 
-  <form id="yearForm">
+  <form id="yearForm" style="display: flex;">
     <label for="year">Year:</label>
-    <input type="text" id="year" required>
+    <input type="text" id="year" required style="width: 15%; margin: 0 1% 0 1%;">
 
     <label for="amount">Dollar Amount:</label>
-    <input type="number" id="amount" required>
+    <input type="number" id="amount" required style="width: 15%; margin: 0 1% 0 1%;">
 
-    <button type="submit">Add</button>
+    <button type="submit" style="width: 10%; margin-left: 2%;">Add</button>
   </form>
 
   <button id="clearStorageButton">Clear Storage</button>
@@ -64,22 +65,111 @@ permalink: /netflix-sop/
   var yearAmounts = document.getElementById('yearAmounts');
   var clearStorageButton = document.getElementById('clearStorageButton');
 
+  const pricesByYearMonth = {};
   const yearKeyPrefix = 'year-';
-  const currentYear = new Date().getFullYear();
-  const nextYear = currentYear + 1;
   const today = new Date();
-  const millisInAYear = (365 * 24 * 3600 * 1000);
+  const dayInMillis = 24 * 3600 * 1000;
+  const yearInMillis = 365 * dayInMillis;
 
   function isValidYear(year) {
-    return /^\d{4}$/.test(year) && year >= 1998 && year <= nextYear;
+    return /^\d{4}$/.test(year) && year >= 1998 && year <= (today.getFullYear() + 1);
   }
 
   function yearKeyMaker(year) {
-    return yearKeyPrefix + year;
+    return `${yearKeyPrefix}${year}`;
+  }
+
+  function yearMonthKeyMaker(date) {
+    return `y${date.getFullYear()}-m${date.getMonth()}`;
   }
 
   function formatNumber(doubleNum, digits=2) {
     return (Math.round(doubleNum * 100.0)/100).toFixed(digits);
+  }
+
+  function formatWholeNumber(doubleNum) {
+    return formatNumber(doubleNum, 0);
+  }
+
+  function fromCacheable(key, fn, args) {
+    const refreshKey = `${key}RefreshTime`;
+    const refreshTime = localStorage.getItem(refreshKey) || 0
+    const now = today.getTime();
+    if (now - refreshTime > dayInMillis) {
+      console.log(`updating local storage cache for ${fn.name}, last refreshed ${new Date(refreshTime)}`);
+      localStorage.setItem(key, JSON.stringify(fn(args)));
+      localStorage.setItem(refreshKey, now);
+    }
+    return JSON.parse(localStorage.getItem(key));
+  }
+
+  function getNetflixPriceData() {
+    function parseCsv(csvRawData) {
+      var prices = [];
+      var rows = csvRawData.split("\n");
+      for (var i = 0; i < rows.length; i++) {
+        if (i > 0) {
+          const line = rows[i].split(',');
+          const date = new Date(line[0].trim())
+          const price = Number.parseFloat(line[1]);
+          prices = prices.concat({date, price});
+        }
+      }
+      return prices;
+    }
+
+    function getNetflixPriceDataInternal() {
+      var sheetsUrl = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQRjawCo5kDMlkHj0a71yy8qv0VKSAgE8bkasA1rbFiGqR7y6BEyCEwjpWmhfYIIX0cf6WzrkGKYImi/pub\?gid\=0\&single\=true\&output\=csv`;
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", sheetsUrl, false);
+      xhr.send();
+
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        return parseCsv(xhr.responseText);
+      }
+      console.warn('failed to get nflx price data', {xhr});
+      return [];
+    }
+
+    const data = fromCacheable('nflxPrices', getNetflixPriceDataInternal);
+    const pricesSorted = data
+      .map(i => {
+        const date = new Date(i.date);
+        const price = Number.parseFloat(i.price);
+        return {date, price};
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    pricesSorted.map(p => {
+      const yearMonthKey = yearMonthKeyMaker(p.date);
+      if (yearMonthKey in pricesByYearMonth) {
+        pricesByYearMonth[yearMonthKey] = pricesByYearMonth[yearMonthKey].concat(p);
+      } else {
+        pricesByYearMonth[yearMonthKey] = [p];
+      }
+    });
+    return pricesSorted;
+  }
+
+  function getStockVolatility(objectArgs) {
+    function getStockVolatilityInternal(args) {
+      const {startDate, endDate} = args;
+      const nflxPrices = getNetflixPriceData();
+      const prices = nflxPrices
+        .filter(p => p.date >= startDate && p.date <= endDate)
+        .map(p => p.price);
+      dailyReturns = new Array(prices.length - 1);
+      for (const [idx, price] of prices.entries()) {
+        if (idx < prices.length - 1) {
+          dailyReturns[idx] = prices[idx + 1] / price - 1;
+        }
+      }
+
+      const stddev = math.std(dailyReturns);
+      const vol = Math.sqrt(dailyReturns.length) * stddev;
+      console.log('stockvolatility', {startDate, endDate, stddev, length: dailyReturns.length, vol});
+      return vol;
+    }
+    return fromCacheable('nflxVolatility', getStockVolatilityInternal, objectArgs);
   }
 
   function normalDist(number) {
@@ -92,39 +182,61 @@ permalink: /netflix-sop/
   }
 
   function getRiskFreeRate(date) {
-    return 5;
+    return 0.03799;
   }
 
-  function getStockVolatility(date) {
-    return 0.48;
-  }
-
-  function getBlackScholesValue(grantDate) {
+  function getBlackScholesValue(currentPrice, strikePrice, grantDate) {
     const expiryDate = new Date(grantDate.getFullYear() + 10, grantDate.getMonth(), grantDate.getDate());
-    const timeToExpiry = (expiryDate - new Date()) / millisInAYear;
+    const timeToExpiry = (expiryDate - today) / yearInMillis;
     const rfr = getRiskFreeRate(today);
-    const vol = getStockVolatility(today);
-    return 1;
+    const vol = getStockVolatility({startDate: new Date(today - yearInMillis), endDate: today});
+    // Ke^(-rt)
+    const kert = strikePrice * Math.exp(-1 * rfr * timeToExpiry);
+    //vol*sqrt(t)
+    const volsqrtt = vol * Math.sqrt(timeToExpiry);
+    const numerator = Math.log(currentPrice / strikePrice) + timeToExpiry * (rfr + 0.5 * vol * vol);
+    const d1 = numerator / volsqrtt;
+    const d2 = d1 - volsqrtt;
+    const nd1 = normalDist(d1);
+    const nd2kert = normalDist(d2) * kert;
+    const value = nd1 * currentPrice - nd2kert;
+    return value;
   }
 
-  function renderFromLocalStorage() {
-    var balance = 0;
-    yearAmounts.innerHTML = '';
-    // Sort the years in ascending order
-    const years = Object.keys(localStorage)
-      .filter(a => a.startsWith(yearKeyPrefix))
-      .map(a => a.replace(yearKeyPrefix, ''))
-      .sort((a, b) => parseInt(a) - parseInt(b));
+  function createMonthView(year, monthIdx, totalAmount, oldBalance) {
+    const date = new Date(year, monthIdx, 1);
+    const dateStr = date.toLocaleDateString('en-us', {
+        weekday: "short", day: "numeric", year:"numeric", month:"short"
+    });
+    // todo(hmit): sometime before the constant used to be 0.2
+    //   Figure out when!
+    const factor = 0.4;
+    // strikePrice is also the closingPrice for the day!
+    const firstTradingDayOfMonth = pricesByYearMonth[yearMonthKeyMaker(date)][0];
+    const strikePrice = firstTradingDayOfMonth.price;
 
-    // Load data from cache
-    for (const idx in years) {
-      const year = years[idx];
-      const totalAmount = localStorage.getItem(yearKeyMaker(year));
-      if (isValidYear(year) && totalAmount) {
-        const prevAmount = localStorage.getItem(yearKeyMaker(year - 1)) || 0;
-        balance = createYearDiv(year, totalAmount, prevAmount, balance);
-      }
-    }
+    const nflxPrices = getNetflixPriceData();
+    const current = nflxPrices[nflxPrices.length - 1];
+    const currentPrice = current.price;
+    const allocation = oldBalance + totalAmount/12.0;
+    const optionPrice = factor * strikePrice;
+    const qty = Math.floor(allocation/optionPrice);
+
+    const balance = allocation - qty * optionPrice;
+    const blackScholesValue = getBlackScholesValue(currentPrice, strikePrice, date);
+    const exerciseValue = Math.max((currentPrice - strikePrice), 0);
+    const data = {
+      date: date,
+      qty: qty,
+      strike: strikePrice,
+      cost: qty * optionPrice,
+      value: qty * currentPrice,
+      bscholes: qty * blackScholesValue,
+      exerciseValue: qty * exerciseValue,
+      timeValue: qty * (blackScholesValue - exerciseValue),
+      insightRatio: (blackScholesValue - exerciseValue) / (blackScholesValue)
+    };
+    return { balance, data };
   }
 
   function createYearDiv(year, amount, prevAmount, balance) {
@@ -142,15 +254,45 @@ permalink: /netflix-sop/
     var contentDiv = document.createElement('div');
     contentDiv.className = 'content';
   
-    var monthEntries = document.createElement('ul');
+    var monthEntries = document.createElement('table');
     monthEntries.className = 'month-entries';
   
+    tags = [
+      {n: 'Date', p: 'date', f: (dt) => dt.toLocaleDateString()},
+      {n: 'Strike Price', p: 'strike', f: formatNumber},
+      {n: 'Quantity', p: 'qty', f: formatWholeNumber},
+      {n: 'Option Price <br/> (Price Paid)', p: 'cost', f: formatNumber},
+      {n: 'Black Scholes <br/> Value', p: 'bscholes', f: formatNumber},
+      {n: 'Current Value', p: 'value', f: formatNumber},
+      {n: 'Time Value', p: 'timeValue', f: formatNumber},
+    ];
+    const monthHeader = document.createElement('tr');
+    tags.map(t => {
+      const colEntry = document.createElement('th');
+      colEntry.innerHTML = t.n;
+      monthHeader.appendChild(colEntry);
+    });
+    monthEntries.appendChild(monthHeader);
     for (var monthIdx = 0; monthIdx < 12; monthIdx++) {
-      const monthEntry = document.createElement('li');
+      const monthEntry = document.createElement('tr');
       // january is special because it uses previous year's amount    
       const totalAmount = (monthIdx > 0) ? amount : prevAmount
-      const processed = createRow(year, monthIdx, totalAmount, balance);
-      monthEntry.textContent = processed.textContent;
+      const processed = createMonthView(year, monthIdx, totalAmount, balance);
+      tags.map(t => {
+        const colEntry = document.createElement('td');
+        var text = '-';
+        if (t.p in processed.data) {
+          const val = processed.data[t.p];
+          if (t.f) {
+            text = t.f(val);
+          } else {
+            text = val;
+          }
+        };
+        colEntry.textContent = text;
+        monthEntry.appendChild(colEntry);
+      });
+
       balance = processed.balance;
       monthEntries.appendChild(monthEntry);
     }
@@ -172,40 +314,25 @@ permalink: /netflix-sop/
     return balance;
   }
 
-  function createRow(year, monthIdx, totalAmount, balance) {
-    const date = new Date(year, monthIdx, 1);
-    const dateStr = date.toLocaleDateString('en-us', {
-        weekday: "short", day: "numeric", year:"numeric", month:"short"
-    });
-    // todo(hmit): sometime before the constant used to be 0.2
-    //   Figure out when!
-    const factor = 0.4;
-    // strikePrice is also the closingPrice for the day!
-    const strikePrice = 355.01;
-    const currentPrice = 400;
-    const allocation = balance + totalAmount/12.0;
-    const optionPrice = factor * strikePrice;
-    const qty = Math.floor(allocation/optionPrice);
+  function renderFromLocalStorage() {
+    var balance = 0;
+    yearAmounts.innerHTML = '';
+    getNetflixPriceData();
+    // Sort the years in ascending order
+    const years = Object.keys(localStorage)
+      .filter(a => a.startsWith(yearKeyPrefix))
+      .map(a => a.replace(yearKeyPrefix, ''))
+      .sort((a, b) => parseInt(a) - parseInt(b));
 
-    const newBalance = allocation - qty * optionPrice;
-    const blackScholesValue = getBlackScholesValue(date);
-    const exerciseValue = Math.max((currentPrice - strikePrice), 0);
-    const numbers = [
-        strikePrice,
-        qty,
-        qty * currentPrice,
-        qty * optionPrice,
-        qty * blackScholesValue,
-        qty * exerciseValue,
-        qty * (exerciseValue - blackScholesValue),
-        (exerciseValue - blackScholesValue) / (blackScholesValue)
-    ].map(x => formatNumber(x));
-    const rowElems = [dateStr].concat(numbers);
-    return {
-        balance: newBalance, 
-        textContent: rowElems.join('----')
-    };
-  
+    // Load data from cache
+    for (const idx in years) {
+      const year = years[idx];
+      const totalAmount = localStorage.getItem(yearKeyMaker(year));
+      if (isValidYear(year) && totalAmount) {
+        const prevAmount = localStorage.getItem(yearKeyMaker(year - 1)) || 0;
+        balance = createYearDiv(year, totalAmount, prevAmount, balance);
+      }
+    }
   }
 
   yearForm.addEventListener('submit', function(event) {
@@ -226,7 +353,7 @@ permalink: /netflix-sop/
       yearInput.value = '';
       amountInput.value = '';
     } else {
-      alert('Please enter a valid year between 1998 and ' + nextYear + ' and a dollar amount.');
+      alert('Please enter a valid year between 1998 and ' + (today.getFullYear() + 1) + ' and a dollar amount.');
     }
   });
 
@@ -235,52 +362,7 @@ permalink: /netflix-sop/
     localStorage.clear();
     yearAmounts.innerHTML = '';
   });
-
-  function readTextFile(url) {
-    fetch(url)
-      .then(response => response.text())
-      .then(text => {
-        // Process the text content
-        console.log(text);
-      })
-      .catch(error => {
-        console.error('Error reading text file:', error);
-      });
-  }
-
-  function parseCSV(csvData) {
-    var rows = csvData.split("\n");
-    var data = [];
-    
-    for (var i = 0; i < rows.length; i++) {
-      var cells = rows[i].split(",");
-      data.push(cells);
-    }
-    
-    return data;
-  }
-
+  
   renderFromLocalStorage();
-  // Example usage: Read a text file from a URL
-  const fileURL = './nflx-close-price.csv';
-  readTextFile(fileURL);
-  async function fetchMarketData(symbol) {
-  try {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`);
-    const data = await response.json();
-    
-    // Extract relevant data from the response
-    const { timestamp, close } = data.chart.result[0].indicators.quote[0];
-    
-    // Process the data as needed
-    // Example: Log the timestamp and closing prices
-    timestamp.forEach((ts, index) => {
-      const date = new Date(ts * 1000); // Convert timestamp to date
-      const closingPrice = close[index];
-      console.log(`Date: ${date}, Closing Price: ${closingPrice}`);
-    });
-  } catch (error) {
-    console.error('Error fetching market data:', error);
-  }
-}
+
 </script>
