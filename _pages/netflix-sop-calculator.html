@@ -1,0 +1,502 @@
+---
+layout: single
+classes: wide
+permalink: /netflix-sop-calculator/
+header:
+  image: /assets/images/netflixsopcalc.png
+  caption: "Photo credit: [**jobs@netflix**](https://jobs.netflix.com/work-life-philosophy)"
+
+---
+
+<style>
+  .collapsible {
+    color: #333;
+    cursor: pointer;
+    padding: 10px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 16px;
+    transition: 0.4s;
+  }
+
+  .content {
+    padding: 0 18px;
+    display: none;
+    overflow: hidden;
+  }
+
+  .dateCol {
+    padding: 0 2px 0 1px;
+    width: 8%;
+  }
+
+  .numericCol {
+    padding: 0 2px 0 1px;
+    width: 5%;
+  }
+
+  .userInput {
+    width: 15%; 
+    margin: 0 1% 0 1%;
+  }
+
+  .cross {
+    cursor: pointer;
+    display: none;
+  }
+
+  .cross.hovered {
+    display: block;
+  }
+
+  .header {
+    background-color: lightgoldenrodyellow;
+  }
+</style>
+
+<div class="container">
+  <h2>Netflix SOP Calculator</h2>
+
+  <div>pre-read is <a href="{{site.url}}/netflix-sop-preread">here</a>.</div>
+  <form id="yearForm" style="display: flex;">
+    <label for="year">Year:</label>
+    <input class="userInput" type="text" id="year" required>
+
+    <label for="amount">Allocation (pre-tax):</label>
+    <input class="userInput" type="number" id="amount" required>
+
+    <button type="submit" style="width: 10%; margin-left: 2%;">Add</button>
+  </form>
+  <div style="display: flex;">
+    <label for="targetPrice">NFLX Target Price: </label>
+    <input class="userInput" type="text" id="targetPrice" onkeydown="handleKeyPress(event)" placeholder="Enter price target..."/>
+  </div>
+  <button id="clearStorageButton">Clear Storage</button>
+  <hr>
+  <div id="summarizer" style="margin-top: 11px;"></div>
+  <hr>
+  <div id="yearAmounts"></div>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/numeral.js/2.0.6/numeral.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.5.1/math.min.js"></script>
+<script>
+  var yearForm = document.getElementById('yearForm');
+  var yearSelect = document.getElementById('yearSelect');
+  var yearAmounts = document.getElementById('yearAmounts');
+  var summarizer = document.getElementById('summarizer');
+  var clearStorageButton = document.getElementById('clearStorageButton');
+  var targetPrice = -1;
+
+  const ignoreKey = 'ignoreYearMonthsCsv';
+  const pricesByYearMonth = {};
+  const yearKeyPrefix = 'year-';
+  const today = new Date();
+  const dayInMillis = 24 * 3600 * 1000;
+  const yearInMillis = 365 * dayInMillis;
+
+  function isValidYear(year) {
+    return /^\d{4}$/.test(year) && year >= 1998 && year <= (today.getFullYear() + 1);
+  }
+
+  function yearKeyMaker(year) {
+    return `${yearKeyPrefix}${year}`;
+  }
+
+  function yearMonthKeyMaker(date) {
+    return `y${date.getFullYear()}-m${date.getMonth()}`;
+  }
+
+  function formatNumber(doubleNum, digits=2) {
+    return numeral(doubleNum).format('0,0.00');
+  }
+
+  function formatWholeNumber(doubleNum) {
+    return formatNumber(doubleNum, 0);
+  }
+
+  function formatDate(date) {
+    return date.toLocaleDateString('en-us', {
+      weekday: "short", day: "numeric", year:"numeric", month:"short"
+    });
+  }
+
+  function fromCacheable(key, fn, args) {
+    const refreshKey = `${key}RefreshTime`;
+    const refreshTime = localStorage.getItem(refreshKey) || 0
+    const now = today.getTime();
+    if (now - refreshTime > dayInMillis) {
+      console.log(`updating local storage cache for ${fn.name}, last refreshed ${new Date(refreshTime)}`);
+      localStorage.setItem(key, JSON.stringify(fn(args)));
+      localStorage.setItem(refreshKey, now);
+    }
+    return JSON.parse(localStorage.getItem(key));
+  }
+
+  function getLatestPrice() {
+    return fromCacheable('latestPrice', function getLatestPriceInternal() {
+      const nflxPrices = getNetflixPriceData();
+      return nflxPrices[nflxPrices.length - 1].price;
+    });
+  }
+
+  function getTargetPrice() {
+    if (targetPrice <= 0) {
+      const tprice = document.getElementById('targetPrice');
+      if (tprice.value) {
+        targetPrice = Number.parseFloat(tprice.value);
+      } else {
+        nflxPrices = getNetflixPriceData();
+        targetPrice = nflxPrices[nflxPrices.length - 1].price;
+      }
+    }
+    return targetPrice;
+  }
+
+  function getNetflixPriceData() {
+    function parseCsv(csvRawData) {
+      var prices = [];
+      var rows = csvRawData.split("\n");
+      for (var i = 0; i < rows.length; i++) {
+        if (i > 0) {
+          const line = rows[i].split(',');
+          const date = new Date(line[0].trim())
+          const price = Number.parseFloat(line[1]);
+          prices = prices.concat({date, price});
+        }
+      }
+      return prices;
+    }
+
+    function getNetflixPriceDataInternal() {
+      var sheetsUrl = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQRjawCo5kDMlkHj0a71yy8qv0VKSAgE8bkasA1rbFiGqR7y6BEyCEwjpWmhfYIIX0cf6WzrkGKYImi/pub\?gid\=0\&single\=true\&output\=csv`;
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", sheetsUrl, false);
+      xhr.send();
+
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        return parseCsv(xhr.responseText);
+      }
+      console.warn('failed to get nflx price data', {xhr});
+      return [];
+    }
+
+    const data = fromCacheable('nflxPrices', getNetflixPriceDataInternal);
+    const pricesSorted = data
+      .map(i => {
+        const date = new Date(i.date);
+        const price = Number.parseFloat(i.price);
+        return {date, price};
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    pricesSorted.map(p => {
+      const yearMonthKey = yearMonthKeyMaker(p.date);
+      if (yearMonthKey in pricesByYearMonth) {
+        pricesByYearMonth[yearMonthKey] = pricesByYearMonth[yearMonthKey].concat(p);
+      } else {
+        pricesByYearMonth[yearMonthKey] = [p];
+      }
+    });
+    return pricesSorted;
+  }
+
+  function getStockVolatility(objectArgs) {
+    function getStockVolatilityInternal(args) {
+      const {startDate, endDate} = args;
+      const nflxPrices = getNetflixPriceData();
+      const prices = nflxPrices
+        .filter(p => p.date >= startDate && p.date <= endDate)
+        .map(p => p.price);
+      dailyReturns = new Array(prices.length - 1);
+      for (const [idx, price] of prices.entries()) {
+        if (idx < prices.length - 1) {
+          dailyReturns[idx] = prices[idx + 1] / price - 1;
+        }
+      }
+
+      const stddev = math.std(dailyReturns);
+      const vol = Math.sqrt(dailyReturns.length) * stddev;
+      console.log('stockvolatility', {startDate, endDate, stddev, length: dailyReturns.length, vol});
+      return vol;
+    }
+    return fromCacheable('nflxVolatility', getStockVolatilityInternal, objectArgs);
+  }
+
+  function normalDist(number) {
+    // Calculate the normal distribution using math.js
+    const mean = 0; // Mean of the distribution
+    const standardDeviation = 1; // Standard deviation of the distribution
+    
+    const result = math.erf((number - mean) / (Math.sqrt(2) * standardDeviation));
+    return 0.5 * (1 + result);
+  }
+
+  function getRiskFreeRate(date) {
+    return 0.03799;
+  }
+
+  function getBlackScholesValue(strikePrice, grantDate) {
+
+    const currentPrice = getLatestPrice();
+
+    const expiryDate = new Date(grantDate.getFullYear() + 10, grantDate.getMonth(), grantDate.getDate());
+    const timeToExpiry = (expiryDate - today) / yearInMillis;
+    const rfr = getRiskFreeRate(today);
+    const vol = getStockVolatility({startDate: new Date(today - yearInMillis), endDate: today});
+    // Ke^(-rt)
+    const kert = strikePrice * Math.exp(-1 * rfr * timeToExpiry);
+    //vol*sqrt(t)
+    const volsqrtt = vol * Math.sqrt(timeToExpiry);
+    const numerator = Math.log(currentPrice / strikePrice) + timeToExpiry * (rfr + 0.5 * vol * vol);
+    const d1 = numerator / volsqrtt;
+    const d2 = d1 - volsqrtt;
+    const nd1 = normalDist(d1);
+    const nd2kert = normalDist(d2) * kert;
+    const value = nd1 * currentPrice - nd2kert;
+    return value;
+  }
+
+  function getMonthInfo(year, monthIdx, totalAmount, oldBalance) {
+    const date = new Date(year, monthIdx, 1);
+    if (date.getTime() > today.getTime()) {
+      return {balance: oldBalance, data: {date}};
+    }
+    // todo(hmit): sometime before the constant used to be 0.2
+    //   Figure out when!
+    const factor = 0.4;
+    // strikePrice is also the closingPrice for the day!
+    const firstTradingDayOfMonth = pricesByYearMonth[yearMonthKeyMaker(date)][0];
+    const strikePrice = firstTradingDayOfMonth.price;
+
+    const targetPrice = getTargetPrice();
+    const allocation = oldBalance + totalAmount/12.0;
+    const optionPrice = factor * strikePrice;
+    const qty = Math.floor(allocation/optionPrice);
+
+    const balance = allocation - qty * optionPrice;
+    const blackScholesValue = getBlackScholesValue(strikePrice, date);
+    const exerciseValue = Math.max((targetPrice - strikePrice), 0);
+    const data = {
+      date: firstTradingDayOfMonth.date,
+      qty: qty,
+      strike: strikePrice,
+      cost: qty * optionPrice,
+      value: qty * exerciseValue,
+      bscholes: qty * blackScholesValue,
+      timeValue: qty * (blackScholesValue - exerciseValue),
+      insightRatio: (blackScholesValue - exerciseValue) / (blackScholesValue)
+    };
+    return { balance, data };
+  }
+
+  function createYearDiv(year, amount, prevAmount, balance) {
+    const divContainer = document.createElement('div');
+    divContainer.className = 'collapsible';
+  
+    const header = document.createElement('div');
+    header.className = 'header';
+  
+    const summary = header.appendChild(document.createElement('div'));
+    summary.id = 'summary';
+  
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'content';
+  
+    const monthEntries = document.createElement('table');
+    monthEntries.className = 'month-entries';
+    monthEntries.style.cssText = 'padding: 1% 0 1% 0;';
+  
+    tags = [
+      {n: 'Grant Date', p: 'date', f: formatDate, c: 'dateCol'},
+      {n: 'Strike Price', p: 'strike', f: formatNumber},
+      {n: 'Quantity', p: 'qty', f: formatWholeNumber, sum: true},
+      {n: 'Option Price <br/> (Cost)', p: 'cost', f: formatNumber, sum: true},
+      {n: 'Current Value', p: 'value', f: formatNumber, sum: true},
+      {n: 'Black Scholes <br/> Value', p: 'bscholes', f: formatNumber, sum: true},
+      {n: 'Time Value', p: 'timeValue', f: formatNumber, sum: true},
+    ];
+    function monthView(data, fn, deletable=false) {
+      const row = document.createElement('tr');
+      var ymonthKey = '';
+      var ignoredYearMonth = false;
+      if (deletable) {
+        const rowDate = data.date;
+        ymonthKey = yearMonthKeyMaker(rowDate);
+        ignoredYearMonth = (localStorage.getItem(ignoreKey) || '').indexOf(ymonthKey) >= 0;
+      }
+      tags.map(t => {
+        const col = document.createElement('td');
+        const className = t.c || 'numericCol';
+        col.classList.add(className);
+        if (ignoredYearMonth && className !== 'dateCol') {
+          col.innerHTML = '-';
+        } else {
+          col.innerHTML = fn(t, data);
+        }
+        row.appendChild(col);
+      });
+      if (deletable) {
+        row.classList.add('deletable');
+        row.addEventListener('mouseenter', function() {
+          this.querySelector('.cross').classList.add('hovered');
+          this.classList.add('hovered');
+        });
+        row.addEventListener('mouseleave', function() {
+          this.querySelector('.cross').classList.remove('hovered');
+          this.classList.remove('hovered');
+        });
+
+        const crosstd = row.appendChild(document.createElement('td'));
+        crosstd.style.cssText = 'width: 1%';
+
+        crosstd.innerHTML = `<span class="cross ${(ignoredYearMonth) ? 'ignored' : ''}" id="cross-${ymonthKey}">${(ignoredYearMonth) ? '✅' : '❌'}</span>`;
+        row.querySelector('.cross').addEventListener("click", function(event) {
+          const ymonth = this.id.replace('cross-', '');
+          const currIgnoreList = localStorage.getItem(ignoreKey) || '';
+          if (this.classList.value.indexOf('ignored') >= 0) {
+            localStorage.setItem(ignoreKey, currIgnoreList.replaceAll(',' + ymonth, ''));
+          } else {
+            localStorage.setItem(ignoreKey, `${currIgnoreList},${ymonth}`);
+          }
+          this.classList.toggle('ignored');
+          event.stopPropagation();
+          renderFromLocalStorage();
+        });
+      } else {
+        row.appendChild(document.createElement('td'));
+      }
+      return row;
+    }
+
+    monthEntries.appendChild(monthView(tags, (t, data) => t.n));
+    var total = {};
+    for (var monthIdx = 1; monthIdx < 13; monthIdx++) {
+      
+      const processed = getMonthInfo(year, monthIdx, amount, balance);
+      balance = processed.balance;      
+      monthEntries.appendChild(monthView(processed.data, (t, data, ignored) => {
+        if (!(t.p in data)) {
+          return '-';
+        }
+        const val = data[t.p];
+        if ('sum' in t && t.sum) {
+          if (t.p in total) {
+            total[t.p] += val;
+          } else {
+            total[t.p] = val;
+          }
+        }
+        if (t.f) {
+          text = t.f(val);
+        } else {
+          text = val;
+        }
+        return text;
+      }, deletable=true));
+    }
+
+    monthEntries.appendChild(monthView(total, (t, data) => {
+      if (t.p === 'date') {
+        return '<strong>Total</strong>';
+      }
+      return (t.p in data) ? `<strong>${formatNumber(data[t.p])}<strong/>` : '-';
+    }));
+  
+    summary.innerHTML = `Year: ${year}` +
+      `, Value $${formatNumber(total['value'])} vs Spend $${formatNumber(total['cost'])}` +
+      `&nbsp;&nbsp;&nbsp; <span class=".expand-icon">↴</span>`;
+    contentDiv.appendChild(monthEntries);
+    divContainer.appendChild(header);
+    divContainer.appendChild(contentDiv);
+    yearAmounts.appendChild(divContainer);
+
+    header.addEventListener('click', function() {
+      this.classList.toggle('expanded');
+      var content = this.nextElementSibling;
+      if (content.style.display === 'block') {
+        content.style.display = 'none';
+      } else {
+        content.style.display = 'block';
+      }
+    });
+    return {balance, ...total};
+  }
+
+  function renderFromLocalStorage() {
+    var balance = 0;
+    yearAmounts.innerHTML = '';
+    getNetflixPriceData();
+    // Sort the years in ascending order
+    const years = Object.keys(localStorage)
+      .filter(a => a.startsWith(yearKeyPrefix))
+      .map(a => a.replace(yearKeyPrefix, ''))
+      .sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Load data from cache
+    const total = {};
+    for (const idx in years) {
+      const year = years[idx];
+      const totalAmount = localStorage.getItem(yearKeyMaker(year));
+      if (isValidYear(year) && totalAmount) {
+        const prevAmount = localStorage.getItem(yearKeyMaker(year - 1)) || 0;
+        const result = createYearDiv(year, totalAmount, prevAmount, balance);
+        balance = result.balance;
+        
+        for (k in result) {
+          if (k === 'balance') {
+            continue;
+          }
+          if (!(k in total)) {
+            total[k] = 0;
+          }
+          total[k] += result[k];
+        }
+      }
+    }
+    
+    summarizer.innerHTML = `<p style="font-size: 16px; padding: 11 0;"><strong>Summary </strong><br/>
+      You have ${total['qty']} options after spending $${formatNumber(total['cost'])}.<br/>
+      With target price $${formatNumber(getTargetPrice())}, they are valued at $${formatNumber(total['value'])}.<br/>
+      The black-scholes valuation is $${formatNumber(total['bscholes'])}.
+      </p>`;
+  }
+
+  yearForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    var yearInput = document.getElementById('year');
+    var amountInput = document.getElementById('amount');
+
+    var year = yearInput.value;
+    var amount = amountInput.value;
+
+    if (isValidYear(year) && amount) {
+      // Save data to cache
+      localStorage.setItem(yearKeyMaker(year), amount);
+
+      renderFromLocalStorage();
+
+      yearInput.value = '';
+      amountInput.value = '';
+    } else {
+      alert('Please enter a valid year between 1998 and ' + (today.getFullYear() + 1) + ' and a dollar amount.');
+    }
+  });
+
+  clearStorageButton.addEventListener('click', function() {
+    // Clear storage
+    localStorage.clear();
+    yearAmounts.innerHTML = '';
+  });
+  
+  function handleKeyPress(event) {
+    if (event.keyCode === 13) {
+      event.preventDefault();
+      targetPrice = -1;
+      renderFromLocalStorage();
+    }
+  }
+  renderFromLocalStorage();
+
+</script>

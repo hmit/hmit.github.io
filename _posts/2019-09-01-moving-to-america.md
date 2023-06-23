@@ -1,9 +1,6 @@
 ---
-layout: post
+layout: single
 title: Moving to 'murica!
-tags:
-  - america
-  - 'work visa'
 ---
 
 I decided to move to the US of A sometime in 2013. I asked my friends around for referral and browsing the monthly "Who is hiring?" posts on Hacker News.
