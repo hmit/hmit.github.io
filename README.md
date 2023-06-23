@@ -10,3 +10,6 @@ You can reach me at [linkedin](https://www.linkedin.com/in/harshitmittal/) OR [t
 
 # About this project
 I have been meaning to maintain a blog for a while now and using my current downtime to set it up and kick-start it with a few posts. Hopefully, it doesn't just become a forgotten-by-author shout box into the ether that internet is and stays maintained.
+
+# Instructions to publish to gh-pages
+Should be automatically published after some delay. Switched to main branch
