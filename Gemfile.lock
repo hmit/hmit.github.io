@@ -262,7 +262,7 @@ PLATFORMS
 DEPENDENCIES
   github-pages
   jekyll-include-cache
-  minimal-mistakes-jekyll
+  minimal-mistakes-jekyll (~> 4.24)
   webrick (~> 1.8)
 
 BUNDLED WITH
