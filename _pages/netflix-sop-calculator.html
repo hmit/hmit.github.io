@@ -12,7 +12,7 @@ header:
   .collapsible {
     color: #333;
     cursor: pointer;
-    padding: 18px;
+    padding: 10px;
     width: 100%;
     border: none;
     text-align: left;
@@ -27,25 +27,32 @@ header:
     overflow: hidden;
   }
 
+  .dateCol {
+    padding: 0 2px 0 1px;
+    width: 8%;
+  }
+
+  .numericCol {
+    padding: 0 2px 0 1px;
+    width: 5%;
+  }
+
   .userInput {
     width: 15%; 
     margin: 0 1% 0 1%;
   }
 
-  .expand-icon {
-    float: right;
-    margin-top: 4px;
-    margin-right: 10px;
-    width: 16px;
-    height: 16px;
-    background-image: url('expand_icon.png'); /* Add the URL of your expand icon image */
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
+  .cross {
+    cursor: pointer;
+    display: none;
   }
 
-  .expanded {
-    background-image: url('collapse_icon.png'); /* Add the URL of your collapse icon image */
+  .cross.hovered {
+    display: block;
+  }
+
+  .header {
+    background-color: lightgoldenrodyellow;
   }
 </style>
 
@@ -82,6 +89,7 @@ header:
   var clearStorageButton = document.getElementById('clearStorageButton');
   var targetPrice = -1;
 
+  const ignoreKey = 'ignoreYearMonthsCsv';
   const pricesByYearMonth = {};
   const yearKeyPrefix = 'year-';
   const today = new Date();
@@ -283,26 +291,24 @@ header:
   }
 
   function createYearDiv(year, amount, prevAmount, balance) {
-    var divContainer = document.createElement('div');
+    const divContainer = document.createElement('div');
     divContainer.className = 'collapsible';
   
-    var header = document.createElement('div');
-    header.textContent = 'Year: ' + year + ', Amount: $' + formatNumber(amount) + ', Carryover: $' + formatNumber(balance);
+    const header = document.createElement('div');
     header.className = 'header';
   
-    var expandIcon = document.createElement('div');
-    expandIcon.className = 'expand-icon';
-    header.appendChild(expandIcon);
+    const summary = header.appendChild(document.createElement('div'));
+    summary.id = 'summary';
   
-    var contentDiv = document.createElement('div');
+    const contentDiv = document.createElement('div');
     contentDiv.className = 'content';
   
-    var monthEntries = document.createElement('table');
+    const monthEntries = document.createElement('table');
     monthEntries.className = 'month-entries';
     monthEntries.style.cssText = 'padding: 1% 0 1% 0;';
   
     tags = [
-      {n: 'Grant Date', p: 'date', f: formatDate},
+      {n: 'Grant Date', p: 'date', f: formatDate, c: 'dateCol'},
       {n: 'Strike Price', p: 'strike', f: formatNumber},
       {n: 'Quantity', p: 'qty', f: formatWholeNumber, sum: true},
       {n: 'Option Price <br/> (Cost)', p: 'cost', f: formatNumber, sum: true},
@@ -310,28 +316,70 @@ header:
       {n: 'Black Scholes <br/> Value', p: 'bscholes', f: formatNumber, sum: true},
       {n: 'Time Value', p: 'timeValue', f: formatNumber, sum: true},
     ];
-    function monthView(data, fn) {
-      row = document.createElement('tr');
+    function monthView(data, fn, deletable=false) {
+      const row = document.createElement('tr');
+      var ymonthKey = '';
+      var ignoredYearMonth = false;
+      if (deletable) {
+        const rowDate = data.date;
+        ymonthKey = yearMonthKeyMaker(rowDate);
+        ignoredYearMonth = (localStorage.getItem(ignoreKey) || '').indexOf(ymonthKey) >= 0;
+      }
       tags.map(t => {
         const col = document.createElement('td');
-        col.style.cssText = 'padding: 0 2px 0 1px; width: 5%';
-        col.innerHTML = fn(t);
+        const className = t.c || 'numericCol';
+        col.classList.add(className);
+        if (ignoredYearMonth && className !== 'dateCol') {
+          col.innerHTML = '-';
+        } else {
+          col.innerHTML = fn(t, data);
+        }
         row.appendChild(col);
       });
+      if (deletable) {
+        row.classList.add('deletable');
+        row.addEventListener('mouseenter', function() {
+          this.querySelector('.cross').classList.add('hovered');
+          this.classList.add('hovered');
+        });
+        row.addEventListener('mouseleave', function() {
+          this.querySelector('.cross').classList.remove('hovered');
+          this.classList.remove('hovered');
+        });
+
+        const crosstd = row.appendChild(document.createElement('td'));
+        crosstd.style.cssText = 'width: 1%';
+
+        crosstd.innerHTML = `<span class="cross ${(ignoredYearMonth) ? 'ignored' : ''}" id="cross-${ymonthKey}">${(ignoredYearMonth) ? '✅' : '❌'}</span>`;
+        row.querySelector('.cross').addEventListener("click", function(event) {
+          const ymonth = this.id.replace('cross-', '');
+          const currIgnoreList = localStorage.getItem(ignoreKey) || '';
+          if (this.classList.value.indexOf('ignored') >= 0) {
+            localStorage.setItem(ignoreKey, currIgnoreList.replaceAll(',' + ymonth, ''));
+          } else {
+            localStorage.setItem(ignoreKey, `${currIgnoreList},${ymonth}`);
+          }
+          this.classList.toggle('ignored');
+          event.stopPropagation();
+          renderFromLocalStorage();
+        });
+      } else {
+        row.appendChild(document.createElement('td'));
+      }
       return row;
     }
-    monthEntries.appendChild(monthView(tags, (t) => t.n));
+
+    monthEntries.appendChild(monthView(tags, (t, data) => t.n));
     var total = {};
     for (var monthIdx = 1; monthIdx < 13; monthIdx++) {
       
       const processed = getMonthInfo(year, monthIdx, amount, balance);
       balance = processed.balance;      
-      monthEntries.appendChild(monthView(processed.data, (t) => {
-        var text = '-';
-        if (!(t.p in processed.data)) {
-          return text;
+      monthEntries.appendChild(monthView(processed.data, (t, data, ignored) => {
+        if (!(t.p in data)) {
+          return '-';
         }
-        const val = processed.data[t.p];
+        const val = data[t.p];
         if ('sum' in t && t.sum) {
           if (t.p in total) {
             total[t.p] += val;
@@ -345,19 +393,19 @@ header:
           text = val;
         }
         return text;
-      }));
+      }, deletable=true));
     }
 
-    monthEntries.appendChild(document.createElement('tr'));
-    monthEntries.appendChild(monthView({}, (t) => {
+    monthEntries.appendChild(monthView(total, (t, data) => {
       if (t.p === 'date') {
         return '<strong>Total</strong>';
       }
-      return (t.p in total) ? `<strong>${formatNumber(total[t.p])}<strong/>` : '-';
+      return (t.p in data) ? `<strong>${formatNumber(data[t.p])}<strong/>` : '-';
     }));
   
-    header.textContent = `Year: ${year}` +
-      `, Value vs Spend: $${formatNumber(total['value'])} vs $${formatNumber(amount)}`;
+    summary.innerHTML = `Year: ${year}` +
+      `, Value $${formatNumber(total['value'])} vs Spend $${formatNumber(total['cost'])}` +
+      `&nbsp;&nbsp;&nbsp; <span class=".expand-icon">↴</span>`;
     contentDiv.appendChild(monthEntries);
     divContainer.appendChild(header);
     divContainer.appendChild(contentDiv);
