@@ -4,7 +4,7 @@ title: About
 permalink: /about/
 header:
   image: /assets/images/prismatic.png
-  caption: "[Gran Prismatic - Yellowstone](https://www.google.com/maps/place/Grand+Prismatic+Spring/@44.5264873,-110.8376875,3a,75y,90t/data=!3m8!1e2!3m6!1sAF1QipPenJO_KPXLTgpQh_XuMyXCj5SwdjJZ9vRfPXnW!2e10!3e12!6shttps:%2F%2Flh5.googleusercontent.com%2Fp%2FAF1QipPenJO_KPXLTgpQh_XuMyXCj5SwdjJZ9vRfPXnW%3Dw203-h152-k-no!7i12000!8i9000!4m9!3m8!1s0x5351ebbc0fc247f5:0x9395fd540a280e44!8m2!3d44.5251129!4d-110.838198!10e5!14m1!1BCgIgAQ!16s%2Fg%2F11gf06kwc2?entry=ttu)
+  caption: "[Grand Prismatic - Yellowstone](https://www.google.com/maps/place/Grand+Prismatic+Spring/@44.5264873,-110.8376875,3a,75y,90t/data=!3m8!1e2!3m6!1sAF1QipPenJO_KPXLTgpQh_XuMyXCj5SwdjJZ9vRfPXnW!2e10!3e12!6shttps:%2F%2Flh5.googleusercontent.com%2Fp%2FAF1QipPenJO_KPXLTgpQh_XuMyXCj5SwdjJZ9vRfPXnW%3Dw203-h152-k-no!7i12000!8i9000!4m9!3m8!1s0x5351ebbc0fc247f5:0x9395fd540a280e44!8m2!3d44.5251129!4d-110.838198!10e5!14m1!1BCgIgAQ!16s%2Fg%2F11gf06kwc2?entry=ttu)
   | [**@yashi_biyani**](https://instagram.com/yashi_biyani)"
 ---
 
