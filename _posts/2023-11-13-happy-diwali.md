@@ -1,6 +1,10 @@
 ---
 layout: single
 title: Happy Diwali! 🪔
+header:
+  image: /assets/images/diye.png
+  caption: "Diwali@Home | [**@yashi_biyani**](https://instagram.com/yashi_biyani)"
+
 ---
 
 ## Diwali
