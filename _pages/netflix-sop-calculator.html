@@ -163,14 +163,14 @@ header:
   }
 
   function getNetflixPriceData() {
-    function parseCsv(csvRawData) {
+    function parse(response) {
       var prices = [];
-      var rows = csvRawData.split("\n");
+      var rows = JSON.parse(response)["data"];
       for (var i = 0; i < rows.length; i++) {
         if (i > 0) {
-          const line = rows[i].split(',');
-          const date = new Date(line[0].trim())
-          const price = Number.parseFloat(line[1]);
+          const row = rows[i];
+          const date = row["Date"];
+          const price = Number.parseFloat(row["Close"]);
           prices = prices.concat({date, price});
         }
       }
@@ -178,13 +178,13 @@ header:
     }
 
     function getNetflixPriceDataInternal() {
-      var sheetsUrl = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQRjawCo5kDMlkHj0a71yy8qv0VKSAgE8bkasA1rbFiGqR7y6BEyCEwjpWmhfYIIX0cf6WzrkGKYImi/pub\?gid\=0\&single\=true\&output\=csv`;
+      var sheetsUrl = `https://hmitbackend.fly.dev/ticker/NFLX`;
       var xhr = new XMLHttpRequest();
       xhr.open("GET", sheetsUrl, false);
       xhr.send();
 
       if (xhr.readyState === 4 && xhr.status === 200) {
-        return parseCsv(xhr.responseText);
+        return parse(xhr.responseText);
       }
       console.warn('failed to get nflx price data', {xhr});
       return [];
