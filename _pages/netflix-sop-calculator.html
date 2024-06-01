@@ -267,7 +267,15 @@ header:
 
   function getMonthInfo(year, monthIdx, totalAmount, oldBalance) {
     const date = new Date(year, monthIdx, 1);
-    if (date.getTime() > today.getTime()) {
+    var currentDate = today;
+
+    // Set the time to midnight (00:00:00)
+    currentDate.setHours(0);
+    currentDate.setMinutes(0);
+    currentDate.setSeconds(0);
+    currentDate.setMilliseconds(0);
+
+    if (date.getTime() >= currentDate.getTime()) {
       return {balance: oldBalance, data: {date}};
     }
     // todo(hmit): sometime before the constant used to be 0.2
