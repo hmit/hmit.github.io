@@ -268,22 +268,16 @@ header:
 
   function getMonthInfo(year, monthIdx, totalAmount, oldBalance) {
     const date = new Date(year, monthIdx, 1);
-    var currentDate = today;
 
-    // Set the time to midnight (00:00:00)
-    currentDate.setHours(0);
-    currentDate.setMinutes(0);
-    currentDate.setSeconds(0);
-    currentDate.setMilliseconds(0);
-
-    if (date.getTime() >= currentDate.getTime()) {
-      return {balance: oldBalance, data: {date}};
-    }
     // todo(hmit): sometime before the constant used to be 0.2
     //   Figure out when!
     const factor = 0.4;
     // strikePrice is also the closingPrice for the day!
-    const firstTradingDayOfMonth = pricesByYearMonth[yearMonthKeyMaker(date)][0];
+    ymonth = pricesByYearMonth[yearMonthKeyMaker(date)]
+    if (!ymonth || ymonth.length <= 0) {
+      return {balance: oldBalance, data: {date}};
+    }
+    const firstTradingDayOfMonth = ymonth[0];
     const strikePrice = firstTradingDayOfMonth.price;
 
     const targetPrice = getTargetPrice();
