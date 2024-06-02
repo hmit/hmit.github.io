@@ -195,6 +195,7 @@ header:
       .map(i => {
         const date = new Date(i.date);
         const price = Number.parseFloat(i.price);
+        date.setHours(date.getHours() + 16);
         return {date, price};
       })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
