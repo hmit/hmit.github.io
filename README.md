@@ -13,3 +13,11 @@ I have been meaning to maintain a blog for a while now and using my current down
 
 # Instructions to publish to gh-pages
 Should be automatically published after some delay. Switched to main branch
+
+# Local testing
+```
+ruby-install ruby 3.1.3
+chruby 3.1.3
+gem install jekyll bundler
+bundle exec jekyll serve
+```
