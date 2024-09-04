@@ -15,6 +15,8 @@ I have been meaning to maintain a blog for a while now and using my current down
 Should be automatically published after some delay. Switched to main branch
 
 # Local testing
+A good aspect ratio for post/page header image is 3:1
+
 ```
 ruby-install ruby 3.1.3
 chruby 3.1.3
