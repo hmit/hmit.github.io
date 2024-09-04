@@ -15,9 +15,9 @@ Diwali is a harvest festival celebrated across India. It has pretty varied stori
 
 This is a festival of lights (and fire-crackers). People decorate their houses with lights — LED, lamps, diye (clay lamps). Indian festivals are incomplete without worshipping a God. In my culture, we worship Lord Ganesh and Goddess Laxmi.
 
-The pujas start with Lord Ganesh — harbinger of good luck, prosperity, and intelligence. Worshipping him first also brings auspices to the devoted. My family has our Lord Ganesh that I learnt as a kid and recite from memory. Out of lack-of-practice, I tend to forget critical verses and so adding the puja here for my future reference...
+The pujas start with Lord Ganesh — harbinger of good luck, prosperity, and intelligence. Worshipping him first also brings auspices to the devoted. My family has our own Lord Ganesh puja that I learnt as a kid and recite from memory. Out of lack-of-practice, I tend to forget critical verses and so adding the puja here for my future reference...
 
-Hope this and future Diwali, we recite this one together in-person or in-spirit!!!
+Hope this and future Diwalis, we recite this one together in-person or in-spirit!!!
 
 ## Gavri Nanda
 
